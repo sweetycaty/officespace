@@ -1,7 +1,6 @@
 import streamlit as st
 import calendar
 from datetime import datetime
-import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -17,18 +16,9 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(
 )
 gc = gspread.authorize(creds)
 
-# Retrieve spreadsheet ID from secrets
 SPREADSHEET_ID = st.secrets["gcp_service_account"]["spreadsheet_id"]
-try:
-    sh = gc.open_by_key(SPREADSHEET_ID)
-    worksheet = sh.sheet1
-except Exception:
-    st.error(
-        "Could not open Google Sheet.\n"
-        "- Check `spreadsheet_id` in secrets.toml.\n"
-        "- Service account needs Editor access."
-    )
-    st.stop()
+sh = gc.open_by_key(SPREADSHEET_ID)
+worksheet = sh.sheet1
 
 # === Desk & Team Setup ===
 desk_labels = [
@@ -40,28 +30,22 @@ desk_labels = [
 ]
 team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana", "Audun"]
 
-# === Load existing bookings into session state on first run ===
-if "loaded" not in st.session_state:
-    st.session_state.loaded = True
-    try:
-        records = worksheet.get_all_records()
-        for rec in records:
-            date_str = rec.get("Date", "")
-            desk_name = rec.get("Desk", "")
-            user = rec.get("Booked By", "")
-            if date_str and desk_name and user and desk_name in desk_labels:
-                idx = desk_labels.index(desk_name) + 1
-                key = f"{date_str}_desk{idx}"
-                st.session_state[key] = user
-    except Exception:
-        pass
+# === Callback to write a single booking to Google Sheets ===
+def write_booking(key):
+    # When a dropdown changes, push that one booking
+    val = st.session_state[key]
+    if not val:
+        return
+    date_str, desk = key.split("_")
+    idx = int(desk.replace("desk", ""))
+    worksheet.append_row([date_str, desk_labels[idx-1], val])
+    st.success(f"Booked {val} for {desk_labels[idx-1]} on {date_str}")
 
-# === Prepare keys list for this run ===
-all_keys = []
+# === Auto-load existing bookings if needed (optional) ===
+# If you want to clear sheet each run, skip this
 
 # === Calendar Rendering & Dropdowns ===
 today = datetime.today()
-# Auto-scroll for May–Dec 2025
 if 5 <= today.month <= 12 and today.year == 2025:
     today_str = today.strftime("%Y-%m-%d")
     st.markdown(
@@ -89,48 +73,14 @@ for month in range(5, 13):
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
                         for idx, desk_name in enumerate(desk_labels, start=1):
                             key = f"{date_str}_desk{idx}"
-                            all_keys.append(key)
-                            default = st.session_state.get(key, "")
-                            # Selectbox tied to session_state[key]
+                            # each selectbox writes immediately on change
                             st.selectbox(
                                 label=desk_name,
                                 options=team_members,
-                                index=team_members.index(default) if default in team_members else 0,
                                 key=key,
+                                on_change=write_booking,
+                                args=(key,),
                                 label_visibility="visible"
                             )
                     else:
                         st.markdown(" ")
-
-# === Action Buttons ===
-st.markdown("---")
-col1, col2 = st.columns(2)
-
-with col1:
-    if st.button("📥 Download Booking Summary"):
-        data = []
-        for key in all_keys:
-            user = st.session_state.get(key, "")
-            if user:
-                date_str, desk = key.split("_")
-                idx = int(desk.replace("desk", ""))
-                data.append({"Date": date_str, "Desk": desk_labels[idx-1], "Booked By": user})
-        df = pd.DataFrame(data)
-        st.download_button("Download CSV", df.to_csv(index=False), "bookings_2025.csv", "text/csv")
-
-with col2:
-    if st.button("💾 Save to Google Sheets"):
-        rows = []
-        for key in all_keys:
-            user = st.session_state.get(key, "")
-            if user:
-                date_str, desk = key.split("_")
-                idx = int(desk.replace("desk", ""))
-                rows.append([date_str, desk_labels[idx-1], user])
-        if rows:
-            worksheet.clear()
-            worksheet.append_row(["Date", "Desk", "Booked By"])
-            worksheet.append_rows(rows)
-            st.success("Bookings saved to Google Sheets!")
-        else:
-            st.info("No bookings to save.")
