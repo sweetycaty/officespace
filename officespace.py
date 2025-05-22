@@ -37,7 +37,12 @@ team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana"
 bookings = {}
 try:
     for rec in worksheet.get_all_records():
-        date_str = rec.get("Date")
+        # Clean up date, strip leading apostrophe if present
+        raw_date = rec.get("Date")
+        if isinstance(raw_date, str):
+            date_str = raw_date.lstrip("'")
+        else:
+            date_str = str(raw_date)
         desk_name = rec.get("Desk")
         user = rec.get("Booked By")
         if date_str and desk_name and user and desk_name in desk_labels:
