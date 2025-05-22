@@ -3,6 +3,7 @@ import calendar
 from datetime import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from gspread.exceptions import APIError
 
 # === App Setup ===
 st.set_page_config(page_title="Desk Booking – 2025", layout="wide")
@@ -10,9 +11,13 @@ st.title("📅 Office Desk Booking – 2025")
 
 # === Google Sheets Setup ===
 creds_dict = st.secrets["gcp_service_account"]
+# Include Drive scope to ensure write permissions
 creds = ServiceAccountCredentials.from_json_keyfile_dict(
     creds_dict,
-    scopes=["https://www.googleapis.com/auth/spreadsheets"],
+    scopes=[
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ],
 )
 gc = gspread.authorize(creds)
 
@@ -32,19 +37,23 @@ team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana"
 
 # === Callback to write a single booking to Google Sheets ===
 def write_booking(key):
-    # When a dropdown changes, push that one booking
     val = st.session_state[key]
     if not val:
         return
     date_str, desk = key.split("_")
     idx = int(desk.replace("desk", ""))
-    worksheet.append_row([date_str, desk_labels[idx-1], val])
-    st.success(f"Booked {val} for {desk_labels[idx-1]} on {date_str}")
-
-# === Auto-load existing bookings if needed (optional) ===
-# If you want to clear sheet each run, skip this
+    try:
+        worksheet.append_row([date_str, desk_labels[idx-1], val])
+        st.success(f"Booked {val} for {desk_labels[idx-1]} on {date_str}")
+    except APIError as e:
+        st.error(
+            "Failed to save booking.\n"
+            "Check that the service account has edit rights, and the sheet ID is correct."
+        )
+        # Optionally log e.response for debugging
 
 # === Calendar Rendering & Dropdowns ===
+
 today = datetime.today()
 if 5 <= today.month <= 12 and today.year == 2025:
     today_str = today.strftime("%Y-%m-%d")
@@ -73,7 +82,6 @@ for month in range(5, 13):
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
                         for idx, desk_name in enumerate(desk_labels, start=1):
                             key = f"{date_str}_desk{idx}"
-                            # each selectbox writes immediately on change
                             st.selectbox(
                                 label=desk_name,
                                 options=team_members,
