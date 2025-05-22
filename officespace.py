@@ -46,7 +46,7 @@ if 5 <= today.month <= 12 and today.year == 2025:
     )
 
 st.set_page_config(page_title="Desk Booking – 2025", layout="wide")
-st.title("📅 Office Desk Booking P&P – 2025")
+st.title("📅 Office Desk Booking – 2025")
 
 # === Month View (May to Dec) ===
 new_entries = []
@@ -67,31 +67,23 @@ for month in range(5, 13):
                         st.markdown(f'<a name="{day_str}"></a>', unsafe_allow_html=True)
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
 
-                     for desk_index, desk_name in enumerate(desk_labels, start=1):
-    key = f"{day_str}_desk{desk_index}"
-    current_value = bookings.get(key, "")
-    new_value = st.selectbox(
-        label=desk_name,
-        options=team_members,
-        index=team_members.index(current_value) if current_value in team_members else 0,
-        key=key,
-        label_visibility="visible"
-    )
-    if new_value != current_value:
-        bookings[key] = new_value
-        new_entries.append({
-            "Date": day_str,
-            "Desk": desk_index,
-            "Booked By": new_value
-        })
-
-
-    # Update the live tracking of booked people for the day
-    if current_value:
-        booked_people.discard(current_value)  # remove old if changed
-    if new_value:
-        booked_people.add(new_value)          # add new
-
+                        for desk_index, desk_name in enumerate(desk_labels, start=1):
+                            key = f"{day_str}_desk{desk_index}"
+                            current_value = bookings.get(key, "")
+                            new_value = st.selectbox(
+                                label=desk_name,
+                                options=team_members,
+                                index=team_members.index(current_value) if current_value in team_members else 0,
+                                key=key,
+                                label_visibility="visible"
+                            )
+                            if new_value != current_value:
+                                bookings[key] = new_value
+                                new_entries.append({
+                                    "Date": day_str,
+                                    "Desk": desk_index,
+                                    "Booked By": new_value
+                                })
 
 # === Update Google Sheet (overwrite changed rows) ===
 if new_entries:
