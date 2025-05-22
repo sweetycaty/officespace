@@ -40,10 +40,14 @@ desk_labels = [
 ]
 team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana", "Audun"]
 
+# === Key Registry ===
+# Will collect all dropdown keys for reading selections
+all_keys = []
+
 # === Session State Init & Load Existing Bookings ===
-if "bookings" not in st.session_state:
-    st.session_state.bookings = {}
-    # Populate from Google Sheets
+if "loaded" not in st.session_state:
+    # one-time sheet load
+    st.session_state.loaded = True
     try:
         records = worksheet.get_all_records()
         for rec in records:
@@ -53,14 +57,13 @@ if "bookings" not in st.session_state:
             if date_str and desk_name and user and desk_name in desk_labels:
                 idx = desk_labels.index(desk_name) + 1
                 key = f"{date_str}_desk{idx}"
-                st.session_state.bookings[key] = user
+                st.session_state[key] = user
     except Exception:
         pass
 
 # === Today for Scroll Logic ===
 today = datetime.today()
 today_str = f"{today.year}-{today.month:02d}-{today.day:02d}"
-
 if 5 <= today.month <= 12 and today.year == 2025:
     st.markdown(
         f"""
@@ -78,7 +81,6 @@ if 5 <= today.month <= 12 and today.year == 2025:
 for month in range(5, 13):
     cal = calendar.monthcalendar(2025, month)
     with st.expander(calendar.month_name[month] + " 2025", expanded=(month == today.month)):
-        cols = None
         for week in cal:
             cols = st.columns(7)
             for i, day in enumerate(week):
@@ -89,9 +91,10 @@ for month in range(5, 13):
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
                         for idx, desk_name in enumerate(desk_labels, start=1):
                             key = f"{day_str}_desk{idx}"
-                            # ensure default exists
-                            st.session_state.bookings.setdefault(key, "")
-                            # use key-driven selectbox for persistence
+                            all_keys.append(key)
+                            # initialize empty if not set
+                            if key not in st.session_state:
+                                st.session_state[key] = ""
                             st.selectbox(
                                 label=desk_name,
                                 options=team_members,
@@ -107,7 +110,8 @@ col1, col2 = st.columns(2)
 with col1:
     if st.button("📥 Download Booking Summary"):
         data = []
-        for key, user in st.session_state.bookings.items():
+        for key in all_keys:
+            user = st.session_state.get(key, "")
             if user:
                 date_str, desk = key.split("_")
                 idx = int(desk.replace("desk", ""))
@@ -118,7 +122,8 @@ with col1:
 with col2:
     if st.button("💾 Save to Google Sheets"):
         rows = []
-        for key, user in st.session_state.bookings.items():
+        for key in all_keys:
+            user = st.session_state.get(key, "")
             if user:
                 date_str, desk = key.split("_")
                 idx = int(desk.replace("desk", ""))
