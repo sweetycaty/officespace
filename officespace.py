@@ -55,4 +55,33 @@ for month in range(5, 13):
                         st.markdown(" ")
                     else:
                         day_str = f"2025-{month:02d}-{day:02d}"
-                        st.markdown(f'<a name="{d
+                        st.markdown(f'<a name="{day_str}"></a>', unsafe_allow_html=True)
+                        st.markdown(f"### {calendar.day_abbr[i]} {day}")
+
+                        for desk_index, desk_name in enumerate(desk_labels, start=1):
+                            key = f"{day_str}_desk{desk_index}"
+                            st.session_state.bookings.setdefault(key, "")
+                            st.selectbox(
+                                label=desk_name,
+                                options=team_members,
+                                index=team_members.index(st.session_state.bookings[key]),
+                                key=key,
+                                label_visibility="visible"
+                            )
+
+# === Download CSV Button ===
+st.markdown("---")
+if st.button("📥 Download Booking Summary"):
+    data = []
+    for key, user in st.session_state.bookings.items():
+        if user:
+            date_str, desk = key.split("_")
+            desk_index = int(desk.replace("desk", ""))
+            data.append({
+                "Date": date_str,
+                "Desk": desk_labels[desk_index - 1],
+                "Booked By": user
+            })
+    df = pd.DataFrame(data)
+    csv = df.to_csv(index=False)
+    st.download_button("Download CSV", csv, "bookings_2025.csv", "text/csv")
