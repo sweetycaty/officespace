@@ -60,15 +60,23 @@ def write_booking(key):
         return
     date_str, desk = key.split("_")
     idx = int(desk.replace("desk", ""))
-    try:
+
+    # Try to update the row if exists, otherwise append
+    all_records = worksheet.get_all_records()
+    updated = False
+    for i, rec in enumerate(all_records, start=2):  # start=2 to account for header row
+        rec_date = str(rec.get("Date")).lstrip("'")
+        rec_desk = rec.get("Desk")
+        if rec_date == date_str and rec_desk == desk_labels[idx-1]:
+            # Update this row
+            worksheet.update_cell(i, 3, val)  # Assuming 'Booked By' is column 3
+            updated = True
+            break
+    if not updated:
         worksheet.append_row([date_str, desk_labels[idx-1], val])
-        bookings[key] = val
-        st.success(f"Booked {val} for {desk_labels[idx-1]} on {date_str}")
-    except APIError:
-        st.error(
-            "Failed to save booking.\n"
-            "Ensure service account has edit rights and sheet ID is correct."
-        )
+
+    bookings[key] = val
+    st.success(f"Booked {val} for {desk_labels[idx-1]} on {date_str}")
 
 # === Calendar Rendering & Dropdowns ===
 
