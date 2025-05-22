@@ -36,8 +36,7 @@ team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana"
 # === Load all bookings from sheet every run ===
 bookings = {}
 try:
-    records = worksheet.get_all_records()
-    for rec in records:
+    for rec in worksheet.get_all_records():
         date_str = rec.get("Date")
         desk_name = rec.get("Desk")
         user = rec.get("Booked By")
@@ -51,7 +50,8 @@ except Exception:
 # === Callback to write a single booking to Google Sheets ===
 def write_booking(key):
     val = st.session_state[key]
-    if not val or bookings.get(key) == val:
+    prev = bookings.get(key)
+    if not val or val == prev:
         return
     date_str, desk = key.split("_")
     idx = int(desk.replace("desk", ""))
@@ -68,7 +68,6 @@ def write_booking(key):
 # === Calendar Rendering & Dropdowns ===
 
 today = datetime.today()
-# Auto-scroll for May–Dec 2025
 if 5 <= today.month <= 12 and today.year == 2025:
     today_str = today.strftime("%Y-%m-%d")
     st.markdown(
@@ -96,11 +95,13 @@ for month in range(5, 13):
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
                         for idx, desk_name in enumerate(desk_labels, start=1):
                             key = f"{date_str}_desk{idx}"
-                            default = bookings.get(key, "")
+                            # initialize session state with booking
+                            if key not in st.session_state:
+                                st.session_state[key] = bookings.get(key, "")
+                            # dropdown writes to session state and triggers write
                             st.selectbox(
                                 label=desk_name,
                                 options=team_members,
-                                index=team_members.index(default) if default in team_members else 0,
                                 key=key,
                                 on_change=write_booking,
                                 args=(key,),
