@@ -2,10 +2,23 @@ import streamlit as st
 import calendar
 from datetime import datetime
 import pandas as pd
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # === App Setup ===
 st.set_page_config(page_title="Desk Booking – 2025", layout="wide")
 st.title("📅 Office Desk Booking – 2025")
+
+# === Google Sheets Setup ===
+creds_dict = st.secrets["gcp_service_account"]
+creds = ServiceAccountCredentials.from_json_keyfile_dict(
+    creds_dict,
+    scopes=["https://www.googleapis.com/auth/spreadsheets"]
+)
+gc = gspread.authorize(creds)
+SPREADSHEET_NAME = "DeskBookings2025"
+sh = gc.open(SPREADSHEET_NAME)
+worksheet = sh.sheet1
 
 desk_labels = [
     "Bianca's Office",
@@ -27,7 +40,7 @@ today_str = f"{today.year}-{today.month:02d}-{today.day:02d}"
 # === Scroll to Today with JS if in May–Dec 2025 ===
 if 5 <= today.month <= 12 and today.year == 2025:
     st.markdown(
-        f"""
+        f'''
         <script>
             window.onload = function() {{
                 var el = document.getElementsByName("{today_str}")[0];
@@ -36,7 +49,7 @@ if 5 <= today.month <= 12 and today.year == 2025:
                 }}
             }};
         </script>
-        """,
+        ''',
         unsafe_allow_html=True
     )
 
@@ -69,19 +82,43 @@ for month in range(5, 13):
                                 label_visibility="visible"
                             )
 
-# === Download CSV Button ===
+# === Action Buttons ===
 st.markdown("---")
-if st.button("📥 Download Booking Summary"):
-    data = []
-    for key, user in st.session_state.bookings.items():
-        if user:
-            date_str, desk = key.split("_")
-            desk_index = int(desk.replace("desk", ""))
-            data.append({
-                "Date": date_str,
-                "Desk": desk_labels[desk_index - 1],
-                "Booked By": user
-            })
-    df = pd.DataFrame(data)
-    csv = df.to_csv(index=False)
-    st.download_button("Download CSV", csv, "bookings_2025.csv", "text/csv")
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("📥 Download Booking Summary"):
+        data = []
+        for key, user in st.session_state.bookings.items():
+            if user:
+                date_str, desk = key.split("_")
+                desk_index = int(desk.replace("desk", ""))
+                data.append({
+                    "Date": date_str,
+                    "Desk": desk_labels[desk_index - 1],
+                    "Booked By": user
+                })
+        df = pd.DataFrame(data)
+        csv = df.to_csv(index=False)
+        st.download_button("Download CSV", csv, "bookings_2025.csv", "text/csv")
+
+with col2:
+    if st.button("💾 Save to Google Sheets"):
+        data_rows = []
+        for key, user in st.session_state.bookings.items():
+            if user:
+                date_str, desk = key.split("_")
+                desk_index = int(desk.replace("desk", ""))
+                data_rows.append(
+                    [date_str, desk_labels[desk_index - 1], user]
+                )
+        if data_rows:
+            # Clear existing sheet and reset headers
+            worksheet.clear()
+            headers = ["Date", "Desk", "Booked By"]
+            worksheet.append_row(headers)
+            # Append new booking rows
+            for row in data_rows:
+                worksheet.append_row(row)
+            st.success("Bookings saved to Google Sheets!")
+        else:
+            st.info("No bookings to save.")
