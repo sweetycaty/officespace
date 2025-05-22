@@ -61,6 +61,23 @@ def write_booking(key):
         st.success(f"Booked {val} for {desk_labels[idx-1]} on {date_str}")
     except APIError:
         st.error(
+            "Failed to save booking.
+"
+            "Ensure service account has edit rights and sheet ID is correct."
+        ) to Google Sheets ===
+def write_booking(key):
+    val = st.session_state[key]
+    prev = bookings.get(key)
+    if not val or val == prev:
+        return
+    date_str, desk = key.split("_")
+    idx = int(desk.replace("desk", ""))
+    try:
+        worksheet.append_row([date_str, desk_labels[idx-1], val])
+        bookings[key] = val
+        st.success(f"Booked {val} for {desk_labels[idx-1]} on {date_str}")
+    except APIError:
+        st.error(
             "Failed to save booking.\n"
             "Ensure service account has edit rights and sheet ID is correct."
         )
@@ -96,8 +113,8 @@ for month in range(5, 13):
                         for idx, desk_name in enumerate(desk_labels, start=1):
                             key = f"{date_str}_desk{idx}"
                             # initialize session state with booking
-                            if key not in st.session_state:
-                                st.session_state[key] = bookings.get(key, "")
+                            # sync session state with latest booking from sheet
+st.session_state[key] = bookings.get(key, "")
                             # dropdown writes to session state and triggers write
                             st.selectbox(
                                 label=desk_name,
