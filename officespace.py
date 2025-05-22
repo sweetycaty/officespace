@@ -11,7 +11,6 @@ st.title("📅 Office Desk Booking – 2025")
 
 # === Google Sheets Setup ===
 creds_dict = st.secrets["gcp_service_account"]
-# Include Drive scope to ensure write permissions
 creds = ServiceAccountCredentials.from_json_keyfile_dict(
     creds_dict,
     scopes=[
@@ -20,7 +19,6 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(
     ],
 )
 gc = gspread.authorize(creds)
-
 SPREADSHEET_ID = st.secrets["gcp_service_account"]["spreadsheet_id"]
 sh = gc.open_by_key(SPREADSHEET_ID)
 worksheet = sh.sheet1
@@ -35,6 +33,22 @@ desk_labels = [
 ]
 team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana", "Audun"]
 
+# === Load existing bookings into session state once ===
+if "loaded" not in st.session_state:
+    st.session_state.loaded = True
+    try:
+        records = worksheet.get_all_records()
+        for rec in records:
+            date_str = rec.get("Date", "")
+            desk_name = rec.get("Desk", "")
+            user = rec.get("Booked By", "")
+            if date_str and desk_name and user and desk_name in desk_labels:
+                idx = desk_labels.index(desk_name) + 1
+                key = f"{date_str}_desk{idx}"
+                st.session_state[key] = user
+    except Exception:
+        pass
+
 # === Callback to write a single booking to Google Sheets ===
 def write_booking(key):
     val = st.session_state[key]
@@ -45,12 +59,11 @@ def write_booking(key):
     try:
         worksheet.append_row([date_str, desk_labels[idx-1], val])
         st.success(f"Booked {val} for {desk_labels[idx-1]} on {date_str}")
-    except APIError as e:
+    except APIError:
         st.error(
             "Failed to save booking.\n"
-            "Check that the service account has edit rights, and the sheet ID is correct."
+            "Ensure service account has edit rights and sheet ID is correct."
         )
-        # Optionally log e.response for debugging
 
 # === Calendar Rendering & Dropdowns ===
 
@@ -82,9 +95,11 @@ for month in range(5, 13):
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
                         for idx, desk_name in enumerate(desk_labels, start=1):
                             key = f"{date_str}_desk{idx}"
+                            default = st.session_state.get(key, "")
                             st.selectbox(
                                 label=desk_name,
                                 options=team_members,
+                                index=team_members.index(default) if default in team_members else 0,
                                 key=key,
                                 on_change=write_booking,
                                 args=(key,),
