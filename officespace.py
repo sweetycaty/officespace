@@ -9,7 +9,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 st.set_page_config(page_title="Desk Booking – 2025", layout="wide")
 st.title("📅 Office Desk Booking – 2025")
 
-# === Google Sheets Setup ===ncreds_dict = st.secrets["gcp_service_account"]
+# === Google Sheets Setup ===
+creds_dict = st.secrets["gcp_service_account"]
 creds = ServiceAccountCredentials.from_json_keyfile_dict(
     creds_dict,
     scopes=["https://www.googleapis.com/auth/spreadsheets"],
@@ -39,32 +40,29 @@ desk_labels = [
 ]
 team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana", "Audun"]
 
-# === Session State Init & Load Existing Bookings ===
-if "bookings" not in st.session_state:
-    st.session_state.bookings = {}
-    # Load from Google Sheets once
-    try:
-        records = worksheet.get_all_records()
-        for rec in records:
-            date_str = rec.get("Date", "")
-            desk_name = rec.get("Desk", "")
-            user = rec.get("Booked By", "")
-            if date_str and desk_name and user and desk_name in desk_labels:
-                idx = desk_labels.index(desk_name) + 1
-                key = f"{date_str}_desk{idx}"
-                st.session_state.bookings[key] = user
-    except Exception:
-        pass
+# === Prepare Keys List ===
+all_keys = []
 
-# Callback to update bookings dict when a dropdown changes
-def update_booking(key):
-    st.session_state.bookings[key] = st.session_state[key]
+# === Load existing bookings into session state ===
+# (optional: comment out if starting fresh)
+try:
+    records = worksheet.get_all_records()
+    for rec in records:
+        date_str = rec.get("Date", "")
+        desk_name = rec.get("Desk", "")
+        user = rec.get("Booked By", "")
+        if date_str and desk_name and user and desk_name in desk_labels:
+            idx = desk_labels.index(desk_name) + 1
+            key = f"{date_str}_desk{idx}"
+            st.session_state[key] = user
+except Exception:
+    pass
 
 # === Calendar Rendering ===
 today = datetime.today()
-today_str = today.strftime("%Y-%m-%d")
-
-# Auto-scroll to today if applicable\if 5 <= today.month <= 12 and today.year == 2025:
+# Auto-scroll for May–Dec 2025
+if 5 <= today.month <= 12 and today.year == 2025:
+    today_str = today.strftime("%Y-%m-%d")
     st.markdown(
         f"""
         <script>
@@ -90,16 +88,15 @@ for month in range(5, 13):
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
                         for idx, desk_name in enumerate(desk_labels, start=1):
                             key = f"{date_str}_desk{idx}"
-                            # initialize session state for widget
-                            if key not in st.session_state:
-                                st.session_state[key] = st.session_state.bookings.get(key, "")
-                            # render selectbox with change callback
-                            st.selectbox(
+                            all_keys.append(key)
+                            # initialize default
+                            default = st.session_state.get(key, "")
+                            # render selectbox
+                            st.session_state[key] = st.selectbox(
                                 label=desk_name,
                                 options=team_members,
+                                index=team_members.index(default),
                                 key=key,
-                                on_change=update_booking,
-                                args=(key,),
                                 label_visibility="visible"
                             )
                     else:
@@ -112,7 +109,8 @@ col1, col2 = st.columns(2)
 with col1:
     if st.button("📥 Download Booking Summary"):
         data = []
-        for key, user in st.session_state.bookings.items():
+        for key in all_keys:
+            user = st.session_state.get(key, "")
             if user:
                 date_str, desk = key.split("_")
                 idx = int(desk.replace("desk", ""))
@@ -122,8 +120,13 @@ with col1:
 
 with col2:
     if st.button("💾 Save to Google Sheets"):
-        rows = [[date, desk_labels[int(key.split("_")[1].replace("desk",""))-1], user]
-                for key, user in st.session_state.bookings.items() if user]
+        rows = []
+        for key in all_keys:
+            user = st.session_state.get(key, "")
+            if user:
+                date_str, desk = key.split("_")
+                idx = int(desk.replace("desk", ""))
+                rows.append([date_str, desk_labels[idx-1], user])
         if rows:
             worksheet.clear()
             worksheet.append_row(["Date", "Desk", "Booked By"])
