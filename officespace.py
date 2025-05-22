@@ -67,23 +67,37 @@ for month in range(5, 13):
                         st.markdown(f'<a name="{day_str}"></a>', unsafe_allow_html=True)
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
 
-                        for desk_index, desk_name in enumerate(desk_labels, start=1):
-                            key = f"{day_str}_desk{desk_index}"
-                            current_value = bookings.get(key, "")
-                            new_value = st.selectbox(
-                                label=desk_name,
-                                options=team_members,
-                                index=team_members.index(current_value) if current_value in team_members else 0,
-                                key=key,
-                                label_visibility="visible"
-                            )
-                            if new_value != current_value:
-                                bookings[key] = new_value
-                                new_entries.append({
-                                    "Date": day_str,
-                                    "Desk": desk_index,
-                                    "Booked By": new_value
-                                })
+                       # Step 1: Collect current bookings for the day
+booked_today = {
+    int(k.split("_")[1].replace("desk", "")): v
+    for k, v in bookings.items()
+    if k.startswith(day_str) and v
+}
+booked_people = set(booked_today.values())
+
+# Step 2: Render desk dropdowns while excluding booked people
+for desk_index, desk_name in enumerate(desk_labels, start=1):
+    key = f"{day_str}_desk{desk_index}"
+    current_value = bookings.get(key, "")
+
+    # Allow current assignee to remain visible in their own desk dropdown
+    options = [""] + [name for name in team_members if name == current_value or name not in booked_people]
+
+    new_value = st.selectbox(
+        label=desk_name,
+        options=options,
+        index=options.index(current_value) if current_value in options else 0,
+        key=key,
+        label_visibility="visible"
+    )
+
+    if new_value != current_value:
+        bookings[key] = new_value
+        new_entries.append({
+            "Date": day_str,
+            "Desk": desk_index,
+            "Booked By": new_value
+        })
 
 # === Update Google Sheet (overwrite changed rows) ===
 if new_entries:
