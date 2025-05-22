@@ -5,7 +5,7 @@ import pandas as pd
 
 # === App Setup ===
 st.set_page_config(page_title="Desk Booking – 2025", layout="wide")
-st.title("📅 Office Desk Booking – 2025")
+st.title("📅 Office Desk Booking P&P – 2025")
 
 desk_labels = [
     "Bianca's Office",
