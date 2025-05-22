@@ -17,10 +17,18 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(
 )
 gc = gspread.authorize(creds)
 
-# Use spreadsheet ID to avoid Drive scope requirements
-SPREADSHEET_ID = "1yxT_lxluX0i3xFKYQzRqc9N2BA6ad41pgZwxEkwQcRs"  # e.g. from URL: /d/<THIS_ID>/edit
-sh = gc.open_by_key(SPREADSHEET_ID)
-worksheet = sh.sheet1
+# Retrieve spreadsheet ID from secrets
+SPREADSHEET_ID = st.secrets["gcp_service_account"]["spreadsheet_id"]
+try:
+    sh = gc.open_by_key(SPREADSHEET_ID)
+    worksheet = sh.sheet1
+except Exception:
+    st.error(
+        "Could not open Google Sheet.\n"
+        "- Check `spreadsheet_id` in secrets.toml.\n"
+        "- Service account needs Editor access."
+    )
+    st.stop()
 
 # === Desk & Team Setup ===
 desk_labels = [
@@ -32,85 +40,94 @@ desk_labels = [
 ]
 team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana", "Audun"]
 
-# === Session State Init ===
-if "bookings" not in st.session_state:
-    st.session_state.bookings = {}
+# === Load existing bookings into session state on first run ===
+if "loaded" not in st.session_state:
+    st.session_state.loaded = True
+    try:
+        records = worksheet.get_all_records()
+        for rec in records:
+            date_str = rec.get("Date", "")
+            desk_name = rec.get("Desk", "")
+            user = rec.get("Booked By", "")
+            if date_str and desk_name and user and desk_name in desk_labels:
+                idx = desk_labels.index(desk_name) + 1
+                key = f"{date_str}_desk{idx}"
+                st.session_state[key] = user
+    except Exception:
+        pass
 
-# === Today for Scroll Logic ===
+# === Prepare keys list for this run ===
+all_keys = []
+
+# === Calendar Rendering & Dropdowns ===
 today = datetime.today()
-today_str = f"{today.year}-{today.month:02d}-{today.day:02d}"
-
-# Scroll calendar to today if May–Dec 2025
+# Auto-scroll for May–Dec 2025
 if 5 <= today.month <= 12 and today.year == 2025:
+    today_str = today.strftime("%Y-%m-%d")
     st.markdown(
-        f'''
+        f"""
         <script>
             window.onload = function() {{
                 var el = document.getElementsByName("{today_str}")[0];
-                if (el) {{ el.scrollIntoView({{ behavior: "smooth" }}); }}
+                if (el) el.scrollIntoView({{behavior:'smooth'}});
             }};
         </script>
-        ''', unsafe_allow_html=True
+        """,
+        unsafe_allow_html=True,
     )
 
-# === Generate Calendar for May–Dec 2025 ===
 for month in range(5, 13):
     cal = calendar.monthcalendar(2025, month)
-    month_name = calendar.month_name[month]
-    expand_default = (month == today.month)
-
-    with st.expander(f"{month_name} 2025", expanded=expand_default):
+    with st.expander(f"{calendar.month_name[month]} 2025", expanded=(month == today.month)):
         for week in cal:
             cols = st.columns(7)
             for i, day in enumerate(week):
                 with cols[i]:
-                    if day == 0:
-                        st.markdown(" ")
-                    else:
-                        day_str = f"2025-{month:02d}-{day:02d}"
-                        st.markdown(f'<a name="{day_str}"></a>', unsafe_allow_html=True)
+                    if day:
+                        date_str = f"2025-{month:02d}-{day:02d}"
+                        st.markdown(f'<a name="{date_str}"></a>', unsafe_allow_html=True)
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
-
                         for idx, desk_name in enumerate(desk_labels, start=1):
-                            key = f"{day_str}_desk{idx}"
-                            st.session_state.bookings.setdefault(key, "")
+                            key = f"{date_str}_desk{idx}"
+                            all_keys.append(key)
+                            default = st.session_state.get(key, "")
+                            # Selectbox tied to session_state[key]
                             st.selectbox(
                                 label=desk_name,
                                 options=team_members,
-                                index=team_members.index(st.session_state.bookings[key]),
+                                index=team_members.index(default) if default in team_members else 0,
                                 key=key,
                                 label_visibility="visible"
                             )
+                    else:
+                        st.markdown(" ")
 
 # === Action Buttons ===
 st.markdown("---")
 col1, col2 = st.columns(2)
+
 with col1:
     if st.button("📥 Download Booking Summary"):
         data = []
-        for key, user in st.session_state.bookings.items():
+        for key in all_keys:
+            user = st.session_state.get(key, "")
             if user:
                 date_str, desk = key.split("_")
-                desk_index = int(desk.replace("desk", ""))
-                data.append({
-                    "Date": date_str,
-                    "Desk": desk_labels[desk_index - 1],
-                    "Booked By": user
-                })
+                idx = int(desk.replace("desk", ""))
+                data.append({"Date": date_str, "Desk": desk_labels[idx-1], "Booked By": user})
         df = pd.DataFrame(data)
-        csv = df.to_csv(index=False)
-        st.download_button("Download CSV", csv, "bookings_2025.csv", "text/csv")
+        st.download_button("Download CSV", df.to_csv(index=False), "bookings_2025.csv", "text/csv")
 
 with col2:
     if st.button("💾 Save to Google Sheets"):
         rows = []
-        for key, user in st.session_state.bookings.items():
+        for key in all_keys:
+            user = st.session_state.get(key, "")
             if user:
                 date_str, desk = key.split("_")
-                desk_index = int(desk.replace("desk", ""))
-                rows.append([date_str, desk_labels[desk_index - 1], user])
+                idx = int(desk.replace("desk", ""))
+                rows.append([date_str, desk_labels[idx-1], user])
         if rows:
-            # Reset sheet and headers
             worksheet.clear()
             worksheet.append_row(["Date", "Desk", "Booked By"])
             worksheet.append_rows(rows)
