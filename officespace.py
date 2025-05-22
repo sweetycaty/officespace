@@ -112,6 +112,5 @@ for month in range(5, 13):
                                 args=(key,),
                                 label_visibility="visible"
                             )
-                            )
                     else:
                         st.markdown(" ")
