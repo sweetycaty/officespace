@@ -46,7 +46,7 @@ if 5 <= today.month <= 12 and today.year == 2025:
     )
 
 st.set_page_config(page_title="Desk Booking – 2025", layout="wide")
-st.title("📅 Office Desk Booking – 2025")
+st.title("📅 Office Desk Booking P&P – 2025")
 
 # === Month View (May to Dec) ===
 new_entries = []
@@ -68,25 +68,29 @@ for month in range(5, 13):
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
 
                        # Step 1: Collect current bookings for the day
+# Step 1: Collect initial bookings from the sheet for this day
 booked_today = {
     int(k.split("_")[1].replace("desk", "")): v
     for k, v in bookings.items()
     if k.startswith(day_str) and v
 }
-booked_people = set(booked_today.values())
+booked_people = set(booked_today.values())  # set of people already booked on this day
 
-# Step 2: Render desk dropdowns while excluding booked people
+# Step 2: Render desk dropdowns one by one, updating exclusions live
 for desk_index, desk_name in enumerate(desk_labels, start=1):
     key = f"{day_str}_desk{desk_index}"
     current_value = bookings.get(key, "")
 
-    # Allow current assignee to remain visible in their own desk dropdown
-    options = [""] + [name for name in team_members if name == current_value or name not in booked_people]
+    # Allow the current assignee to be visible in their own dropdown
+    available_people = [""] + [
+        name for name in team_members
+        if name == current_value or (name not in booked_people)
+    ]
 
     new_value = st.selectbox(
         label=desk_name,
-        options=options,
-        index=options.index(current_value) if current_value in options else 0,
+        options=available_people,
+        index=available_people.index(current_value) if current_value in available_people else 0,
         key=key,
         label_visibility="visible"
     )
@@ -98,6 +102,13 @@ for desk_index, desk_name in enumerate(desk_labels, start=1):
             "Desk": desk_index,
             "Booked By": new_value
         })
+
+    # Update the live tracking of booked people for the day
+    if current_value:
+        booked_people.discard(current_value)  # remove old if changed
+    if new_value:
+        booked_people.add(new_value)          # add new
+
 
 # === Update Google Sheet (overwrite changed rows) ===
 if new_entries:
