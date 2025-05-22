@@ -18,7 +18,7 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(
 gc = gspread.authorize(creds)
 
 # Use spreadsheet ID to avoid Drive scope requirements
-SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"  # e.g. from URL: /d/<THIS_ID>/edit
+SPREADSHEET_ID = "1yxT_lxluX0i3xFKYQzRqc9N2BA6ad41pgZwxEkwQcRs"  # e.g. from URL: /d/<THIS_ID>/edit
 sh = gc.open_by_key(SPREADSHEET_ID)
 worksheet = sh.sheet1
 
