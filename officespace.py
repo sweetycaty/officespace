@@ -50,14 +50,11 @@ if "bookings" not in st.session_state:
             date_str = rec.get("Date", "")
             desk_name = rec.get("Desk", "")
             user = rec.get("Booked By", "")
-            if date_str and desk_name and user:
-                # find matching desk index
-                if desk_name in desk_labels:
-                    idx = desk_labels.index(desk_name) + 1
-                    key = f"{date_str}_desk{idx}"
-                    st.session_state.bookings[key] = user
+            if date_str and desk_name and user and desk_name in desk_labels:
+                idx = desk_labels.index(desk_name) + 1
+                key = f"{date_str}_desk{idx}"
+                st.session_state.bookings[key] = user
     except Exception:
-        # if sheet empty or headers missing, ignore
         pass
 
 # === Today for Scroll Logic ===
@@ -80,10 +77,8 @@ if 5 <= today.month <= 12 and today.year == 2025:
 # === Generate Calendar for May–Dec 2025 ===
 for month in range(5, 13):
     cal = calendar.monthcalendar(2025, month)
-    month_name = calendar.month_name[month]
-    expand_default = (month == today.month)
-
-    with st.expander(f"{month_name} 2025", expanded=expand_default):
+    with st.expander(calendar.month_name[month] + " 2025", expanded=(month == today.month)):
+        cols = None
         for week in cal:
             cols = st.columns(7)
             for i, day in enumerate(week):
@@ -92,18 +87,16 @@ for month in range(5, 13):
                         day_str = f"2025-{month:02d}-{day:02d}"
                         st.markdown(f'<a name="{day_str}"></a>', unsafe_allow_html=True)
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
-
                         for idx, desk_name in enumerate(desk_labels, start=1):
                             key = f"{day_str}_desk{idx}"
                             # ensure default exists
                             st.session_state.bookings.setdefault(key, "")
-                            # display selectbox with persisted or default selection
+                            # use key-driven selectbox for persistence
                             st.selectbox(
                                 label=desk_name,
                                 options=team_members,
-                                index=team_members.index(st.session_state.bookings[key]),
                                 key=key,
-                                label_visibility="visible",
+                                label_visibility="visible"
                             )
                     else:
                         st.markdown(" ")
