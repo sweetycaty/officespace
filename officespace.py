@@ -13,13 +13,16 @@ st.title("📅 Office Desk Booking – 2025")
 creds_dict = st.secrets["gcp_service_account"]
 creds = ServiceAccountCredentials.from_json_keyfile_dict(
     creds_dict,
-    scopes=["https://www.googleapis.com/auth/spreadsheets"]
+    scopes=["https://www.googleapis.com/auth/spreadsheets"],
 )
 gc = gspread.authorize(creds)
-SPREADSHEET_NAME = "DeskBookings2025"
-sh = gc.open(SPREADSHEET_NAME)
+
+# Use spreadsheet ID to avoid Drive scope requirements
+SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"  # e.g. from URL: /d/<THIS_ID>/edit
+sh = gc.open_by_key(SPREADSHEET_ID)
 worksheet = sh.sheet1
 
+# === Desk & Team Setup ===
 desk_labels = [
     "Bianca's Office",
     "Manuel's Desk",
@@ -37,27 +40,24 @@ if "bookings" not in st.session_state:
 today = datetime.today()
 today_str = f"{today.year}-{today.month:02d}-{today.day:02d}"
 
-# === Scroll to Today with JS if in May–Dec 2025 ===
+# Scroll calendar to today if May–Dec 2025
 if 5 <= today.month <= 12 and today.year == 2025:
     st.markdown(
         f'''
         <script>
             window.onload = function() {{
                 var el = document.getElementsByName("{today_str}")[0];
-                if (el) {{
-                    el.scrollIntoView({{ behavior: "smooth" }});
-                }}
+                if (el) {{ el.scrollIntoView({{ behavior: "smooth" }}); }}
             }};
         </script>
-        ''',
-        unsafe_allow_html=True
+        ''', unsafe_allow_html=True
     )
 
 # === Generate Calendar for May–Dec 2025 ===
 for month in range(5, 13):
     cal = calendar.monthcalendar(2025, month)
     month_name = calendar.month_name[month]
-    expand_default = (month == today.month and today.year == 2025)
+    expand_default = (month == today.month)
 
     with st.expander(f"{month_name} 2025", expanded=expand_default):
         for week in cal:
@@ -71,8 +71,8 @@ for month in range(5, 13):
                         st.markdown(f'<a name="{day_str}"></a>', unsafe_allow_html=True)
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
 
-                        for desk_index, desk_name in enumerate(desk_labels, start=1):
-                            key = f"{day_str}_desk{desk_index}"
+                        for idx, desk_name in enumerate(desk_labels, start=1):
+                            key = f"{day_str}_desk{idx}"
                             st.session_state.bookings.setdefault(key, "")
                             st.selectbox(
                                 label=desk_name,
@@ -103,22 +103,17 @@ with col1:
 
 with col2:
     if st.button("💾 Save to Google Sheets"):
-        data_rows = []
+        rows = []
         for key, user in st.session_state.bookings.items():
             if user:
                 date_str, desk = key.split("_")
                 desk_index = int(desk.replace("desk", ""))
-                data_rows.append(
-                    [date_str, desk_labels[desk_index - 1], user]
-                )
-        if data_rows:
-            # Clear existing sheet and reset headers
+                rows.append([date_str, desk_labels[desk_index - 1], user])
+        if rows:
+            # Reset sheet and headers
             worksheet.clear()
-            headers = ["Date", "Desk", "Booked By"]
-            worksheet.append_row(headers)
-            # Append new booking rows
-            for row in data_rows:
-                worksheet.append_row(row)
+            worksheet.append_row(["Date", "Desk", "Booked By"])
+            worksheet.append_rows(rows)
             st.success("Bookings saved to Google Sheets!")
         else:
             st.info("No bookings to save.")
