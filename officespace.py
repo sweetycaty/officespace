@@ -100,13 +100,18 @@ for month in range(5, 13):
                             if key not in st.session_state or st.session_state[key] != bookings.get(key, ""):
                                 st.session_state[key] = bookings.get(key, "")
                             # dropdown writes to session state and triggers write
+                            # determine default index from session state
+                            default = st.session_state.get(key, "")
+                            idx_default = team_members.index(default) if default in team_members else 0
                             st.selectbox(
                                 label=desk_name,
                                 options=team_members,
+                                index=idx_default,
                                 key=key,
                                 on_change=write_booking,
                                 args=(key,),
                                 label_visibility="visible"
+                            )
                             )
                     else:
                         st.markdown(" ")
