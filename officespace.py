@@ -9,8 +9,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 st.set_page_config(page_title="Desk Booking – 2025", layout="wide")
 st.title("📅 Office Desk Booking – 2025")
 
-# === Google Sheets Setup ===
-creds_dict = st.secrets["gcp_service_account"]
+# === Google Sheets Setup ===ncreds_dict = st.secrets["gcp_service_account"]
 creds = ServiceAccountCredentials.from_json_keyfile_dict(
     creds_dict,
     scopes=["https://www.googleapis.com/auth/spreadsheets"],
@@ -24,9 +23,9 @@ try:
     worksheet = sh.sheet1
 except Exception:
     st.error(
-        "Could not open Google Sheet.\n" +
-        "- Double-check that `spreadsheet_id` in secrets.toml is correct.\n" +
-        "- Make sure the service account email has Editor access to the sheet."
+        "Could not open Google Sheet.\n"
+        "- Check `spreadsheet_id` in secrets.toml.\n"
+        "- Service account needs Editor access."
     )
     st.stop()
 
@@ -40,14 +39,10 @@ desk_labels = [
 ]
 team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana", "Audun"]
 
-# === Key Registry ===
-# Will collect all dropdown keys for reading selections
-all_keys = []
-
 # === Session State Init & Load Existing Bookings ===
-if "loaded" not in st.session_state:
-    # one-time sheet load
-    st.session_state.loaded = True
+if "bookings" not in st.session_state:
+    st.session_state.bookings = {}
+    # Load from Google Sheets once
     try:
         records = worksheet.get_all_records()
         for rec in records:
@@ -57,48 +52,54 @@ if "loaded" not in st.session_state:
             if date_str and desk_name and user and desk_name in desk_labels:
                 idx = desk_labels.index(desk_name) + 1
                 key = f"{date_str}_desk{idx}"
-                st.session_state[key] = user
+                st.session_state.bookings[key] = user
     except Exception:
         pass
 
-# === Today for Scroll Logic ===
+# Callback to update bookings dict when a dropdown changes
+def update_booking(key):
+    st.session_state.bookings[key] = st.session_state[key]
+
+# === Calendar Rendering ===
 today = datetime.today()
-today_str = f"{today.year}-{today.month:02d}-{today.day:02d}"
-if 5 <= today.month <= 12 and today.year == 2025:
+today_str = today.strftime("%Y-%m-%d")
+
+# Auto-scroll to today if applicable\if 5 <= today.month <= 12 and today.year == 2025:
     st.markdown(
         f"""
         <script>
             window.onload = function() {{
                 var el = document.getElementsByName("{today_str}")[0];
-                if (el) {{ el.scrollIntoView({{ behavior: 'smooth' }}); }}
+                if (el) el.scrollIntoView({{behavior:'smooth'}});
             }};
         </script>
         """,
         unsafe_allow_html=True,
     )
 
-# === Generate Calendar for May–Dec 2025 ===
 for month in range(5, 13):
     cal = calendar.monthcalendar(2025, month)
-    with st.expander(calendar.month_name[month] + " 2025", expanded=(month == today.month)):
+    with st.expander(f"{calendar.month_name[month]} 2025", expanded=(month == today.month)):
         for week in cal:
             cols = st.columns(7)
             for i, day in enumerate(week):
                 with cols[i]:
                     if day:
-                        day_str = f"2025-{month:02d}-{day:02d}"
-                        st.markdown(f'<a name="{day_str}"></a>', unsafe_allow_html=True)
+                        date_str = f"2025-{month:02d}-{day:02d}"
+                        st.markdown(f'<a name="{date_str}"></a>', unsafe_allow_html=True)
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
                         for idx, desk_name in enumerate(desk_labels, start=1):
-                            key = f"{day_str}_desk{idx}"
-                            all_keys.append(key)
-                            # initialize empty if not set
+                            key = f"{date_str}_desk{idx}"
+                            # initialize session state for widget
                             if key not in st.session_state:
-                                st.session_state[key] = ""
+                                st.session_state[key] = st.session_state.bookings.get(key, "")
+                            # render selectbox with change callback
                             st.selectbox(
                                 label=desk_name,
                                 options=team_members,
                                 key=key,
+                                on_change=update_booking,
+                                args=(key,),
                                 label_visibility="visible"
                             )
                     else:
@@ -107,11 +108,11 @@ for month in range(5, 13):
 # === Action Buttons ===
 st.markdown("---")
 col1, col2 = st.columns(2)
+
 with col1:
     if st.button("📥 Download Booking Summary"):
         data = []
-        for key in all_keys:
-            user = st.session_state.get(key, "")
+        for key, user in st.session_state.bookings.items():
             if user:
                 date_str, desk = key.split("_")
                 idx = int(desk.replace("desk", ""))
@@ -121,13 +122,8 @@ with col1:
 
 with col2:
     if st.button("💾 Save to Google Sheets"):
-        rows = []
-        for key in all_keys:
-            user = st.session_state.get(key, "")
-            if user:
-                date_str, desk = key.split("_")
-                idx = int(desk.replace("desk", ""))
-                rows.append([date_str, desk_labels[idx-1], user])
+        rows = [[date, desk_labels[int(key.split("_")[1].replace("desk",""))-1], user]
+                for key, user in st.session_state.bookings.items() if user]
         if rows:
             worksheet.clear()
             worksheet.append_row(["Date", "Desk", "Booked By"])
