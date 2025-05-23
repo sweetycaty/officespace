@@ -1,13 +1,29 @@
 import streamlit as st
 import calendar
 from datetime import datetime
-import pandas as pd
 import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+from gspread.exceptions import APIError
 
 # === App Setup ===
 st.set_page_config(page_title="Desk Booking – 2025", layout="wide")
 st.title("📅 Office Desk Booking – 2025")
 
+# === Google Sheets Setup ===
+creds_dict = st.secrets["gcp_service_account"]
+creds = ServiceAccountCredentials.from_json_keyfile_dict(
+    creds_dict,
+    scopes=[
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+    ],
+)
+gc = gspread.authorize(creds)
+SPREADSHEET_ID = st.secrets["gcp_service_account"]["spreadsheet_id"]
+sh = gc.open_by_key(SPREADSHEET_ID)
+worksheet = sh.sheet1
+
+# === Desk & Team Setup ===
 desk_labels = [
     "Bianca's Office",
     "Manuel's Desk",
@@ -17,87 +33,89 @@ desk_labels = [
 ]
 team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana", "Audun"]
 
-# === Session State Init ===
-if "bookings" not in st.session_state:
-    st.session_state.bookings = {}
+# === Load all bookings from sheet every run ===
+bookings = {}
+try:
+    for rec in worksheet.get_all_records():
+        # Clean up date, strip leading apostrophe if present
+        raw_date = rec.get("Date")
+        if isinstance(raw_date, str):
+            date_str = raw_date.lstrip("'")
+        else:
+            date_str = str(raw_date)
+        desk_name = rec.get("Desk")
+        user = rec.get("Booked By")
+        if date_str and desk_name and user and desk_name in desk_labels:
+            idx = desk_labels.index(desk_name) + 1
+            key = f"{date_str}_desk{idx}"
+            bookings[key] = user
+except Exception:
+    st.error("Could not load existing bookings from Google Sheets.")
 
+# === Callback to write a single booking to Google Sheets ===
+def write_booking(key):
+    val = st.session_state[key]
+    prev = bookings.get(key)
+    if not val or val == prev:
+        return
+    date_str, desk = key.split("_")
+    idx = int(desk.replace("desk", ""))
+    try:
+        worksheet.append_row([date_str, desk_labels[idx-1], val])
+        bookings[key] = val
+        st.success(f"Booked {val} for {desk_labels[idx-1]} on {date_str}")
+    except APIError:
+        st.error(
+            "Failed to save booking.\n"
+            "Ensure service account has edit rights and sheet ID is correct."
+        )
 
-def load_bookings_from_sheets():
-    gc = gspread.service_account(filename='your-credentials.json')
-    sh = gc.open("DeskBookings2025")
-    worksheet = sh.sheet1
-    records = worksheet.get_all_records()  # returns list of dicts
-    bookings = {}
-    for row in records:
-        key = f"{row['Date']}_desk{desk_labels.index(row['Desk'])+1}"
-        bookings[key] = row['Booked By']
-    return bookings
+# === Calendar Rendering & Dropdowns ===
 
-if "bookings" not in st.session_state:
-    st.session_state.bookings = load_bookings_from_sheets()
-    
-# === Today for Scroll Logic ===
 today = datetime.today()
-today_str = f"{today.year}-{today.month:02d}-{today.day:02d}"
-
-# === Scroll to Today with JS if in May–Dec 2025 ===
+# Auto-scroll for May–Dec 2025
 if 5 <= today.month <= 12 and today.year == 2025:
+    today_str = today.strftime("%Y-%m-%d")
     st.markdown(
         f"""
         <script>
             window.onload = function() {{
                 var el = document.getElementsByName("{today_str}")[0];
-                if (el) {{
-                    el.scrollIntoView({{ behavior: "smooth" }});
-                }}
+                if (el) el.scrollIntoView({{behavior:'smooth'}});
             }};
         </script>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
-# === Generate Calendar for May–Dec 2025 ===
 for month in range(5, 13):
     cal = calendar.monthcalendar(2025, month)
-    month_name = calendar.month_name[month]
-    expand_default = (month == today.month and today.year == 2025)
-
-    with st.expander(f"{month_name} 2025", expanded=expand_default):
+    with st.expander(f"{calendar.month_name[month]} 2025", expanded=(month == today.month)):
         for week in cal:
             cols = st.columns(7)
             for i, day in enumerate(week):
                 with cols[i]:
-                    if day == 0:
-                        st.markdown(" ")
-                    else:
-                        day_str = f"2025-{month:02d}-{day:02d}"
-                        st.markdown(f'<a name="{day_str}"></a>', unsafe_allow_html=True)
+                    if day:
+                        date_str = f"2025-{month:02d}-{day:02d}"
+                        st.markdown(f'<a name="{date_str}"></a>', unsafe_allow_html=True)
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
-
-                        for desk_index, desk_name in enumerate(desk_labels, start=1):
-                            key = f"{day_str}_desk{desk_index}"
-                            st.session_state.bookings.setdefault(key, "")
+                        for idx, desk_name in enumerate(desk_labels, start=1):
+                            key = f"{date_str}_desk{idx}"
+                            # sync session state with latest booking from sheet
+                            if key not in st.session_state or st.session_state[key] != bookings.get(key, ""):
+                                st.session_state[key] = bookings.get(key, "")
+                            # dropdown writes to session state and triggers write
+                            # determine default index from session state
+                            default = st.session_state.get(key, "")
+                            idx_default = team_members.index(default) if default in team_members else 0
                             st.selectbox(
                                 label=desk_name,
                                 options=team_members,
-                                index=team_members.index(st.session_state.bookings[key]),
+                                index=idx_default,
                                 key=key,
+                                on_change=write_booking,
+                                args=(key,),
                                 label_visibility="visible"
                             )
-
-# === Download CSV Button ===
-st.markdown("---")
-if st.button("📥 Download Booking Summary"):
-    data = []
-    for key, user in st.session_state.bookings.items():
-        if user:
-            date_str, desk = key.split("_")
-            desk_index = int(desk.replace("desk", ""))
-            data.append({
-                "Date": date_str,
-                "Desk": desk_labels[desk_index - 1],
-                "Booked By": user
-            })
-    df = pd.DataFrame(data)
-    csv = df.to_csv(index=False)
-    st.download_button("Download CSV", csv, "bookings_2025.csv", "text/csv")
+                    else:
+                        st.markdown(" ")
