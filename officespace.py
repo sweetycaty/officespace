@@ -2,7 +2,6 @@ import streamlit as st
 import calendar
 from datetime import datetime
 import pandas as pd
-import gspread
 
 # === App Setup ===
 st.set_page_config(page_title="Desk Booking – 2025", layout="wide")
@@ -19,23 +18,7 @@ team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana"
 
 # === Session State Init ===
 if "bookings" not in st.session_state:
-   st.session_state.bookings = {}
-
-def load_bookings_from_sheets():
-    gc = gspread.service_account(filename='your-credentials.json')
-    sh = gc.open("DeskBookings2025")
-    worksheet = sh.sheet1
-    records = worksheet.get_all_records()  # returns list of dicts
-    bookings = {}
-    for row in records:
-        key = f"{row['Date']}_desk{desk_labels.index(row['Desk'])+1}"
-        bookings[key] = row['Booked By']
-    return bookings
-
-if "bookings" not in st.session_state:
-    st.session_state.bookings = load_bookings_from_sheets()
-
-
+    st.session_state.bookings = {}
 
 # === Today for Scroll Logic ===
 today = datetime.today()
