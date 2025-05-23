@@ -18,8 +18,8 @@ desk_labels = [
 team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana", "Audun"]
 
 # === Session State Init ===
-#if "bookings" not in st.session_state:
- #   st.session_state.bookings = {}
+if "bookings" not in st.session_state:
+   st.session_state.bookings = {}
 
 def load_bookings_from_sheets():
     gc = gspread.service_account(filename='your-credentials.json')
