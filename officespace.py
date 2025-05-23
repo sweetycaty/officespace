@@ -1,31 +1,12 @@
 import streamlit as st
 import calendar
 from datetime import datetime
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-from gspread.exceptions import APIError
+import pandas as pd
 
 # === App Setup ===
 st.set_page_config(page_title="Desk Booking – 2025", layout="wide")
 st.title("📅 Office Desk Booking – 2025")
 
-# === Google Sheets Setup ===
-creds_dict = st.secrets["gcp_service_account"]
-# Include Drive scope to ensure write permissions
-creds = ServiceAccountCredentials.from_json_keyfile_dict(
-    creds_dict,
-    scopes=[
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive",
-    ],
-)
-gc = gspread.authorize(creds)
-
-SPREADSHEET_ID = st.secrets["gcp_service_account"]["spreadsheet_id"]
-sh = gc.open_by_key(SPREADSHEET_ID)
-worksheet = sh.sheet1
-
-# === Desk & Team Setup ===
 desk_labels = [
     "Bianca's Office",
     "Manuel's Desk",
@@ -35,60 +16,72 @@ desk_labels = [
 ]
 team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana", "Audun"]
 
-# === Callback to write a single booking to Google Sheets ===
-def write_booking(key):
-    val = st.session_state[key]
-    if not val:
-        return
-    date_str, desk = key.split("_")
-    idx = int(desk.replace("desk", ""))
-    try:
-        worksheet.append_row([date_str, desk_labels[idx-1], val])
-        st.success(f"Booked {val} for {desk_labels[idx-1]} on {date_str}")
-    except APIError as e:
-        st.error(
-            "Failed to save booking.\n"
-            "Check that the service account has edit rights, and the sheet ID is correct."
-        )
-        # Optionally log e.response for debugging
+# === Session State Init ===
+if "bookings" not in st.session_state:
+    st.session_state.bookings = {}
 
-# === Calendar Rendering & Dropdowns ===
-
+# === Today for Scroll Logic ===
 today = datetime.today()
+today_str = f"{today.year}-{today.month:02d}-{today.day:02d}"
+
+# === Scroll to Today with JS if in May–Dec 2025 ===
 if 5 <= today.month <= 12 and today.year == 2025:
-    today_str = today.strftime("%Y-%m-%d")
     st.markdown(
         f"""
         <script>
             window.onload = function() {{
                 var el = document.getElementsByName("{today_str}")[0];
-                if (el) el.scrollIntoView({{behavior:'smooth'}});
+                if (el) {{
+                    el.scrollIntoView({{ behavior: "smooth" }});
+                }}
             }};
         </script>
         """,
-        unsafe_allow_html=True,
+        unsafe_allow_html=True
     )
 
+# === Generate Calendar for May–Dec 2025 ===
 for month in range(5, 13):
     cal = calendar.monthcalendar(2025, month)
-    with st.expander(f"{calendar.month_name[month]} 2025", expanded=(month == today.month)):
+    month_name = calendar.month_name[month]
+    expand_default = (month == today.month and today.year == 2025)
+
+    with st.expander(f"{month_name} 2025", expanded=expand_default):
         for week in cal:
             cols = st.columns(7)
             for i, day in enumerate(week):
                 with cols[i]:
-                    if day:
-                        date_str = f"2025-{month:02d}-{day:02d}"
-                        st.markdown(f'<a name="{date_str}"></a>', unsafe_allow_html=True)
+                    if day == 0:
+                        st.markdown(" ")
+                    else:
+                        day_str = f"2025-{month:02d}-{day:02d}"
+                        st.markdown(f'<a name="{day_str}"></a>', unsafe_allow_html=True)
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
-                        for idx, desk_name in enumerate(desk_labels, start=1):
-                            key = f"{date_str}_desk{idx}"
+
+                        for desk_index, desk_name in enumerate(desk_labels, start=1):
+                            key = f"{day_str}_desk{desk_index}"
+                            st.session_state.bookings.setdefault(key, "")
                             st.selectbox(
                                 label=desk_name,
                                 options=team_members,
+                                index=team_members.index(st.session_state.bookings[key]),
                                 key=key,
-                                on_change=write_booking,
-                                args=(key,),
                                 label_visibility="visible"
                             )
-                    else:
-                        st.markdown(" ")
+
+# === Download CSV Button ===
+st.markdown("---")
+if st.button("📥 Download Booking Summary"):
+    data = []
+    for key, user in st.session_state.bookings.items():
+        if user:
+            date_str, desk = key.split("_")
+            desk_index = int(desk.replace("desk", ""))
+            data.append({
+                "Date": date_str,
+                "Desk": desk_labels[desk_index - 1],
+                "Booked By": user
+            })
+    df = pd.DataFrame(data)
+    csv = df.to_csv(index=False)
+    st.download_button("Download CSV", csv, "bookings_2025.csv", "text/csv")
