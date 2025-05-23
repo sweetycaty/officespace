@@ -11,6 +11,7 @@ st.title("📅 Office Desk Booking – 2025")
 
 # === Google Sheets Setup ===
 creds_dict = st.secrets["gcp_service_account"]
+# Include Drive scope to ensure write permissions
 creds = ServiceAccountCredentials.from_json_keyfile_dict(
     creds_dict,
     scopes=[
@@ -19,6 +20,7 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(
     ],
 )
 gc = gspread.authorize(creds)
+
 SPREADSHEET_ID = st.secrets["gcp_service_account"]["spreadsheet_id"]
 sh = gc.open_by_key(SPREADSHEET_ID)
 worksheet = sh.sheet1
@@ -33,47 +35,26 @@ desk_labels = [
 ]
 team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana", "Audun"]
 
-# === Load all bookings from sheet every run ===
-bookings = {}
-try:
-    for rec in worksheet.get_all_records():
-        # Clean up date, strip leading apostrophe if present
-        raw_date = rec.get("Date")
-        if isinstance(raw_date, str):
-            date_str = raw_date.lstrip("'")
-        else:
-            date_str = str(raw_date)
-        desk_name = rec.get("Desk")
-        user = rec.get("Booked By")
-        if date_str and desk_name and user and desk_name in desk_labels:
-            idx = desk_labels.index(desk_name) + 1
-            key = f"{date_str}_desk{idx}"
-            bookings[key] = user
-except Exception:
-    st.error("Could not load existing bookings from Google Sheets.")
-
 # === Callback to write a single booking to Google Sheets ===
 def write_booking(key):
     val = st.session_state[key]
-    prev = bookings.get(key)
-    if not val or val == prev:
+    if not val:
         return
     date_str, desk = key.split("_")
     idx = int(desk.replace("desk", ""))
     try:
         worksheet.append_row([date_str, desk_labels[idx-1], val])
-        bookings[key] = val
         st.success(f"Booked {val} for {desk_labels[idx-1]} on {date_str}")
-    except APIError:
+    except APIError as e:
         st.error(
             "Failed to save booking.\n"
-            "Ensure service account has edit rights and sheet ID is correct."
+            "Check that the service account has edit rights, and the sheet ID is correct."
         )
+        # Optionally log e.response for debugging
 
 # === Calendar Rendering & Dropdowns ===
 
 today = datetime.today()
-# Auto-scroll for May–Dec 2025
 if 5 <= today.month <= 12 and today.year == 2025:
     today_str = today.strftime("%Y-%m-%d")
     st.markdown(
@@ -101,17 +82,9 @@ for month in range(5, 13):
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
                         for idx, desk_name in enumerate(desk_labels, start=1):
                             key = f"{date_str}_desk{idx}"
-                            # sync session state with latest booking from sheet
-                            if key not in st.session_state or st.session_state[key] != bookings.get(key, ""):
-                                st.session_state[key] = bookings.get(key, "")
-                            # dropdown writes to session state and triggers write
-                            # determine default index from session state
-                            default = st.session_state.get(key, "")
-                            idx_default = team_members.index(default) if default in team_members else 0
                             st.selectbox(
                                 label=desk_name,
                                 options=team_members,
-                                index=idx_default,
                                 key=key,
                                 on_change=write_booking,
                                 args=(key,),
