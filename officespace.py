@@ -36,18 +36,6 @@ if "bookings" not in st.session_state:
     st.session_state.bookings = load_bookings_from_sheets()
 
 
-selected = st.session_state.bookings[key]
-try:
-    idx = team_members.index(selected)
-except ValueError:
-    idx = 0  # Default to empty
-st.selectbox(
-    label=desk_name,
-    options=team_members,
-    index=idx,
-    key=key,
-    label_visibility="visible"
-)
 
 # === Today for Scroll Logic ===
 today = datetime.today()
