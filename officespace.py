@@ -25,13 +25,13 @@ worksheet = sh.sheet1
 
 # === Desk & Team Setup ===
 desk_labels = [
-    "Bianca's Office",
-    "Manuel's Desk",
+    "BH Office",
+    "MM Desk",
     "Ioana's Desk",
-    "Ecaterina's Desk",
-    "Dana's Desk"
+    "EP Desk",
+    "DB Desk"
 ]
-team_members = ["", "Bianca", "Barry", "Manuel", "Catarina", "Ecaterina", "Dana", "Audun"]
+team_members = ["", "BH", "BMc", "MM", "CVF", "EP", "DB", "AB"]
 
 # === Load all bookings from sheet every run ===
 bookings = {}
