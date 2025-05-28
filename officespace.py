@@ -57,7 +57,7 @@ def write_booking(key):
     val = st.session_state[key]
     prev = bookings.get(key)
     if val == prev:
-    return
+        return
     date_str, desk = key.split("_")
     idx = int(desk.replace("desk", ""))
     try:
