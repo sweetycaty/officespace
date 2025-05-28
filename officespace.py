@@ -56,7 +56,7 @@ except Exception:
 def write_booking(key):
     val = st.session_state[key]
     prev = bookings.get(key)
-    if val == prev and val != "":
+    if val == prev:
         return
     # continue with reload logic for blank selection
     date_str, desk = key.split("_")
