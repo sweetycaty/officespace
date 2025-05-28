@@ -56,8 +56,8 @@ except Exception:
 def write_booking(key):
     val = st.session_state[key]
     prev = bookings.get(key)
-    if not val or val == prev:
-        return
+    if val == prev:
+    return
     date_str, desk = key.split("_")
     idx = int(desk.replace("desk", ""))
     try:
