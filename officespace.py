@@ -114,14 +114,21 @@ for month in range(5, 13):
                         for idx, desk_name in enumerate(desk_labels, start=1):
                             key = f"{date_str}_desk{idx}"
                             # sync session state with latest booking from sheet
-                            if key not in st.session_state:
-                                # Use booking from Sheet if present, else use desk default if defined, else blank
+                          if key not in st.session_state:
                                 sheet_booking = bookings.get(key, "")
                                 if sheet_booking:
                                     st.session_state[key] = sheet_booking
                                 else:
-                                    desk_default = DEFAULT_DESK_ASSIGNMENTS.get(desk_name, "")
-                                    st.session_state[key] = desk_default
+                                    # Special handling for "BH Office"
+                                    if desk_name == "BH Office":
+                                        date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                                        if date_obj.weekday() == 2:  # 2 = Wednesday
+                                            st.session_state[key] = ""
+                                        else:
+                                            st.session_state[key] = "BH"
+                                    else:
+                                        desk_default = DEFAULT_DESK_ASSIGNMENTS.get(desk_name, "")
+                                        st.session_state[key] = desk_default
                             elif st.session_state[key] != bookings.get(key, ""):
                                 st.session_state[key] = bookings.get(key, "")
                             # dropdown writes to session state and triggers write
