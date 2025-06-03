@@ -35,6 +35,15 @@ desk_labels = [
 ]
 team_members = ["", "BH", "BMc", "MM", "CVF", "EP", "DB", "AB"]
 
+# Mapping of desk_labels to their default team member
+DEFAULT_DESK_ASSIGNMENTS = {
+    "BH Office": "BH",
+    "MM Desk": "MM",
+    "BMc Desk": "BMc",
+    "EP Desk": "EP",
+    "DB Desk": "DB"
+}
+
 # === Load all bookings from sheet every run ===
 bookings = {}
 try:
@@ -105,7 +114,15 @@ for month in range(5, 13):
                         for idx, desk_name in enumerate(desk_labels, start=1):
                             key = f"{date_str}_desk{idx}"
                             # sync session state with latest booking from sheet
-                            if key not in st.session_state or st.session_state[key] != bookings.get(key, ""):
+                            if key not in st.session_state:
+                                # Use booking from Sheet if present, else use desk default if defined, else blank
+                                sheet_booking = bookings.get(key, "")
+                                if sheet_booking:
+                                    st.session_state[key] = sheet_booking
+                                else:
+                                    desk_default = DEFAULT_DESK_ASSIGNMENTS.get(desk_name, "")
+                                    st.session_state[key] = desk_default
+                            elif st.session_state[key] != bookings.get(key, ""):
                                 st.session_state[key] = bookings.get(key, "")
                             # dropdown writes to session state and triggers write
                             # determine default index from session state
