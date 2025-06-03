@@ -104,8 +104,9 @@ for month in range(5, 13):
     cal = calendar.monthcalendar(2025, month)
     with st.expander(f"{calendar.month_name[month]} 2025", expanded=(month == today.month)):
         for week in cal:
-            cols = st.columns(7)
-            for i, day in enumerate(week):
+            # Only create columns for Monday (0) to Friday (4)
+            cols = st.columns(5)
+            for i, day in enumerate(week[:5]):  # Only loop through Monday–Friday
                 with cols[i]:
                     if day:
                         date_str = f"2025-{month:02d}-{day:02d}"
@@ -124,7 +125,6 @@ for month in range(5, 13):
                             elif st.session_state[key] != bookings.get(key, ""):
                                 st.session_state[key] = bookings.get(key, "")
                             # dropdown writes to session state and triggers write
-                            # determine default index from session state
                             default = st.session_state.get(key, "")
                             idx_default = team_members.index(default) if default in team_members else 0
                             st.selectbox(
