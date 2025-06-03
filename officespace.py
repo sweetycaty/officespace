@@ -25,11 +25,13 @@ worksheet = sh.sheet1
 
 # === Desk & Team Setup ===
 desk_labels = [
+    "AB/CVF Office",
     "BH Office",
     "MM Desk",
-    "Ioana's Desk",
+    "BMc Desk",
     "EP Desk",
     "DB Desk"
+    "RPM Desk"
 ]
 team_members = ["", "BH", "BMc", "MM", "CVF", "EP", "DB", "AB"]
 
