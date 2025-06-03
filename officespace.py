@@ -30,7 +30,7 @@ desk_labels = [
     "MM Desk",
     "BMc Desk",
     "EP Desk",
-    "DB Desk"
+    "DB Desk",
     "RPM Desk"
 ]
 team_members = ["", "BH", "BMc", "MM", "CVF", "EP", "DB", "AB"]
