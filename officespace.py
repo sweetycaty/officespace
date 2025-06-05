@@ -33,7 +33,7 @@ desk_labels = [
     "DB Desk",
     "RPM Desk"
 ]
-team_members = [" ","FREE", "BH", "BMc", "MM", "CVF", "EP", "DB", "AB"]
+team_members = [" ","FREE", "BH", "BMc", "MM", "CVF", "EP", "DB", "AB","MH"]
 
 # Mapping of desk_labels to their default team member
 DEFAULT_DESK_ASSIGNMENTS = {
