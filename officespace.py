@@ -31,6 +31,7 @@ desk_labels = [
     "BMc Desk",
     "EP Desk",
     "DB Desk",
+    "Downstairs",
     "RPM Desk"
 ]
 team_members = [" ","FREE", "BH", "BMc", "MM","MH", "CVF", "EP", "DB", "AB"]
@@ -41,6 +42,7 @@ DEFAULT_DESK_ASSIGNMENTS = {
     "MM Desk": "MM",
     "BMc Desk": "BMc",
     "EP Desk": "EP",
+    "RPM Desk": "MH",
     "DB Desk": "DB"
 }
 
