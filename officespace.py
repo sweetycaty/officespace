@@ -42,7 +42,7 @@ DEFAULT_DESK_ASSIGNMENTS = {
     "MM Desk": "MM",
     "BMc Desk": "BMc",
     "EP Desk": "EP",
-    "RPM Desk": "MH",
+    "Downstairs": "MH",
     "DB Desk": "DB"
 }
 
