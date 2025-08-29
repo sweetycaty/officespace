@@ -36,16 +36,16 @@ desk_labels = [
 ]
 team_members = [" ","FREE", "BH", "BMc", "MM","MH", "MMR", "CVF", "EP", "DB", "SP", "AB"]
 
-# Mapping of desk_labels to their default team member
-DEFAULT_DESK_ASSIGNMENTS = {
-    "BH Office": "BH",
-    "MM Desk": "MM",
-    "BMc Desk": "BMc",
-    "EP Desk": "EP",
-    "Downstairs": "MH",
-    "RPM Desk": "SP",
-    "DB Desk": "DB"
-}
+# --- Mapping of desk_labels to their default team member ---
+# DEFAULT_DESK_ASSIGNMENTS = {
+#     "BH Office": "BH",
+#     "MM Desk": "MM",
+#     "BMc Desk": "BMc",
+#     "EP Desk": "EP",
+#     "Downstairs": "MH",
+#     "RPM Desk": "SP",
+#     "DB Desk": "DB"
+# }
 
 # === Load all bookings from sheet every run ===
 bookings = {}
@@ -122,9 +122,12 @@ for month in range(5, 13):
                                 sheet_booking = bookings.get(key, "")
                                 if sheet_booking:
                                     st.session_state[key] = sheet_booking
+                                # --- Commented out default team member assignment ---
+                                # else:
+                                #     desk_default = DEFAULT_DESK_ASSIGNMENTS.get(desk_name, "")
+                                #     st.session_state[key] = desk_default
                                 else:
-                                    desk_default = DEFAULT_DESK_ASSIGNMENTS.get(desk_name, "")
-                                    st.session_state[key] = desk_default
+                                    st.session_state[key] = ""
                             elif st.session_state[key] != bookings.get(key, ""):
                                 st.session_state[key] = bookings.get(key, "")
                             # dropdown writes to session state and triggers write
