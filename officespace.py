@@ -37,15 +37,15 @@ desk_labels = [
 team_members = [" ","FREE", "BH", "BMc", "MM","MH", "MMR", "CVF", "EP", "DB", "SP", "AB"]
 
 # Mapping of desk_labels to their default team member
-#DEFAULT_DESK_ASSIGNMENTS = {
-#    "BH Office": "BH",
-#    "MM Desk": "MM",
-#    "BMc Desk": "BMc",
-#    "EP Desk": "EP",
-#    "Downstairs": "MH",
-#    "RPM Desk": "SP",
-#    "DB Desk": "DB"
-#}
+DEFAULT_DESK_ASSIGNMENTS = {
+    "BH Office": "BH",
+    "MM Desk": "MM",
+    "BMc Desk": "BMc",
+    "EP Desk": "EP",
+    "Downstairs": "MH",
+    "RPM Desk": "SP",
+    "DB Desk": "DB"
+}
 
 # === Load all bookings from sheet every run ===
 bookings = {}
