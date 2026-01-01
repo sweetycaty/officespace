@@ -5,9 +5,12 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from gspread.exceptions import APIError
 
+# === Config ===
+YEAR = 2026
+
 # === App Setup ===
-st.set_page_config(page_title="Desk Booking – 2026", layout="wide")
-st.title("📅 Office Desk Booking – 2026")
+st.set_page_config(page_title=f"Desk Booking – {YEAR}", layout="wide")
+st.title(f"📅 Office Desk Booking – {YEAR}")
 
 # === Google Sheets Setup ===
 creds_dict = st.secrets["gcp_service_account"]
@@ -88,8 +91,8 @@ def write_booking(key):
 # === Calendar Rendering & Dropdowns ===
 
 today = datetime.today()
-# Auto-scroll for May–Dec 2026
-if 5 <= today.month <= 12 and today.year == 2026:
+# Auto-scroll for the configured year
+if today.year == YEAR:
     today_str = today.strftime("%Y-%m-%d")
     st.markdown(
         f"""
@@ -103,16 +106,19 @@ if 5 <= today.month <= 12 and today.year == 2026:
         unsafe_allow_html=True,
     )
 
-for month in range(5, 13):
-    cal = calendar.monthcalendar(2026, month)
-    with st.expander(f"{calendar.month_name[month]} 2026", expanded=(month == today.month)):
+# Render full year (Jan–Dec)
+for month in range(1, 13):
+    cal = calendar.monthcalendar(YEAR, month)
+    # expand only if this month is the current month in the same year
+    expanded = (month == today.month and today.year == YEAR)
+    with st.expander(f"{calendar.month_name[month]} {YEAR}", expanded=expanded):
         for week in cal:
             # Only create columns for Monday (0) to Friday (4)
             cols = st.columns(5)
             for i, day in enumerate(week[:5]):  # Only loop through Monday–Friday
                 with cols[i]:
                     if day:
-                        date_str = f"2026-{month:02d}-{day:02d}"
+                        date_str = f"{YEAR}-{month:02d}-{day:02d}"
                         st.markdown(f'<a name="{date_str}"></a>', unsafe_allow_html=True)
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
                         for idx, desk_name in enumerate(desk_labels, start=1):
