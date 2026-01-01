@@ -6,8 +6,8 @@ from oauth2client.service_account import ServiceAccountCredentials
 from gspread.exceptions import APIError
 
 # === App Setup ===
-st.set_page_config(page_title="Desk Booking – 2025", layout="wide")
-st.title("📅 Office Desk Booking – 2025")
+st.set_page_config(page_title="Desk Booking – 2026", layout="wide")
+st.title("📅 Office Desk Booking – 2026")
 
 # === Google Sheets Setup ===
 creds_dict = st.secrets["gcp_service_account"]
@@ -88,8 +88,8 @@ def write_booking(key):
 # === Calendar Rendering & Dropdowns ===
 
 today = datetime.today()
-# Auto-scroll for May–Dec 2025
-if 5 <= today.month <= 12 and today.year == 2025:
+# Auto-scroll for May–Dec 2026
+if 5 <= today.month <= 12 and today.year == 2026:
     today_str = today.strftime("%Y-%m-%d")
     st.markdown(
         f"""
@@ -104,15 +104,15 @@ if 5 <= today.month <= 12 and today.year == 2025:
     )
 
 for month in range(5, 13):
-    cal = calendar.monthcalendar(2025, month)
-    with st.expander(f"{calendar.month_name[month]} 2025", expanded=(month == today.month)):
+    cal = calendar.monthcalendar(2026, month)
+    with st.expander(f"{calendar.month_name[month]} 2026", expanded=(month == today.month)):
         for week in cal:
             # Only create columns for Monday (0) to Friday (4)
             cols = st.columns(5)
             for i, day in enumerate(week[:5]):  # Only loop through Monday–Friday
                 with cols[i]:
                     if day:
-                        date_str = f"2025-{month:02d}-{day:02d}"
+                        date_str = f"2026-{month:02d}-{day:02d}"
                         st.markdown(f'<a name="{date_str}"></a>', unsafe_allow_html=True)
                         st.markdown(f"### {calendar.day_abbr[i]} {day}")
                         for idx, desk_name in enumerate(desk_labels, start=1):
