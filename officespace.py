@@ -35,7 +35,7 @@ desk_labels = [
     "EP Desk",
     "DB Desk",
     "RPM Desk",
-    "RPM Desk 2"
+    "DO NOT SELECT/TEMPORARILY UNAVAILABLE"
 ]
 team_members = [" ","FREE", "BH", "BMc", "MM","MH", "MMR", "CVF", "RI", "EP", "DB", "SP", "AB"]
 
